@@ -1,0 +1,19 @@
+body {
+  background: linear-gradient(180deg, #f7f9fc, #eaf1ff);
+}
+
+.card {
+  border: none;
+}
+
+input.form-control {
+  border-radius: 1rem;
+}
+
+.btn {
+  border-radius: 1rem;
+}
+
+.alert {
+  border-radius: 1rem;
+}

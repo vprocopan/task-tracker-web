@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
-from flask import Flask, render_template, request, redirect, url_for
-import json, os
+from flask import Flask, render_template, request, redirect, url_for, flash
+import json, os, threading
 
 app = Flask(__name__)
+app.secret_key = "supersecret"  # change in production
 TASKS_FILE = "tasks.json"
+LOCK = threading.Lock()  # thread safety for concurrent writes
 
 
-# ──────────────────────────────────────────────
-# Utility functions
-# ──────────────────────────────────────────────
 def load_tasks():
     if os.path.exists(TASKS_FILE):
         with open(TASKS_FILE, "r") as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return []
     return []
 
 
 def save_tasks(tasks):
-    with open(TASKS_FILE, "w") as f:
-        json.dump(tasks, f, indent=2)
+    with LOCK:
+        with open(TASKS_FILE, "w") as f:
+            json.dump(tasks, f, indent=2)
 
 
-# ──────────────────────────────────────────────
-# Routes
-# ──────────────────────────────────────────────
 @app.route("/")
 def index():
     tasks = load_tasks()
@@ -32,11 +32,14 @@ def index():
 
 @app.route("/add", methods=["POST"])
 def add_task():
+    desc = request.form.get("description", "").strip()
+    if not desc:
+        flash("Task description cannot be empty!", "warning")
+        return redirect(url_for("index"))
     tasks = load_tasks()
-    desc = request.form.get("description")
-    if desc:
-        tasks.append({"description": desc, "done": False})
-        save_tasks(tasks)
+    tasks.append({"description": desc, "done": False})
+    save_tasks(tasks)
+    flash("Task added successfully ✅", "success")
     return redirect(url_for("index"))
 
 
@@ -46,6 +49,7 @@ def mark_done(task_id):
     if 0 <= task_id < len(tasks):
         tasks[task_id]["done"] = True
         save_tasks(tasks)
+        flash(f"Marked '{tasks[task_id]['description']}' as done 🎯", "info")
     return redirect(url_for("index"))
 
 
@@ -53,10 +57,11 @@ def mark_done(task_id):
 def delete_task(task_id):
     tasks = load_tasks()
     if 0 <= task_id < len(tasks):
-        tasks.pop(task_id)
+        removed = tasks.pop(task_id)
         save_tasks(tasks)
+        flash(f"Deleted '{removed['description']}' 🗑️", "danger")
     return redirect(url_for("index"))
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=7777)
+    app.run(host="0.0.0.0", port=7777, debug=True)

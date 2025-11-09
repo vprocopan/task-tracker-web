@@ -2,57 +2,55 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>🧠 Task Tracker</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      background-color: #f7f7f7;
-      margin: 2em auto;
-      max-width: 600px;
-    }
-    h1 { text-align: center; }
-    form { display: flex; gap: .5em; }
-    input[type=text] {
-      flex: 1; padding: .5em; font-size: 1em;
-    }
-    button {
-      padding: .5em 1em;
-      background-color: #0078D7; color: white; border: none;
-      border-radius: .3em; cursor: pointer;
-    }
-    button:hover { background-color: #005fa3; }
-    ul { list-style: none; padding: 0; }
-    li {
-      background: white;
-      padding: .7em;
-      border-radius: .3em;
-      margin-top: .5em;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .done { text-decoration: line-through; color: gray; }
-    a { text-decoration: none; color: #0078D7; margin-left: 0.5em; }
-    a:hover { text-decoration: underline; }
-  </style>
+  <title>🌐 Flask Task Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-  <h1>🧠 Task Tracker</h1>
-  <form action="/add" method="post">
-    <input type="text" name="description" placeholder="Add a new task" required>
-    <button type="submit">Add</button>
-  </form>
+<body class="bg-light">
 
-  <ul>
-      {% for task in tasks %}
-      <li>
-          <span class="{{ 'done' if task.done else '' }}">{{ task.description }}</span>
-          <div>
+<div class="container py-5">
+  <div class="card shadow-lg rounded-4">
+    <div class="card-body">
+      <h1 class="text-center mb-4">🌐 Flask Task Tracker</h1>
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, msg in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              {{ msg }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form action="/add" method="post" class="d-flex gap-2 mb-3">
+        <input type="text" name="description" placeholder="Add a new task" class="form-control" required>
+        <button class="btn btn-primary px-4">Add</button>
+      </form>
+
+      <ul class="list-group">
+        {% for i, task in enumerate(tasks) %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span class="{{ 'text-decoration-line-through text-muted' if task.done else '' }}">
+              {{ task.description }}
+            </span>
+            <div>
               {% if not task.done %}
-              <a href="/done/{{ loop.index0 }}">✅ Done</a>
+                <a href="/done/{{ i }}" class="btn btn-success btn-sm">Done</a>
               {% endif %}
-              <a href="/delete/{{ loop.index0 }}">🗑 Delete</a>
-          </div>
-      </li>
-      {% endfor %}
-  </ul>
+              <a href="/delete/{{ i }}" class="btn btn-danger btn-sm">Delete</a>
+            </div>
+          </li>
+        {% else %}
+          <li class="list-group-item text-center text-muted">No tasks yet! 🎉</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
