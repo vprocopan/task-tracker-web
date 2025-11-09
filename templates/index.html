@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🧠 Task Tracker</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background-color: #f7f7f7;
+      margin: 2em auto;
+      max-width: 600px;
+    }
+    h1 { text-align: center; }
+    form { display: flex; gap: .5em; }
+    input[type=text] {
+      flex: 1; padding: .5em; font-size: 1em;
+    }
+    button {
+      padding: .5em 1em;
+      background-color: #0078D7; color: white; border: none;
+      border-radius: .3em; cursor: pointer;
+    }
+    button:hover { background-color: #005fa3; }
+    ul { list-style: none; padding: 0; }
+    li {
+      background: white;
+      padding: .7em;
+      border-radius: .3em;
+      margin-top: .5em;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .done { text-decoration: line-through; color: gray; }
+    a { text-decoration: none; color: #0078D7; margin-left: 0.5em; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>🧠 Task Tracker</h1>
+  <form action="/add" method="post">
+    <input type="text" name="description" placeholder="Add a new task" required>
+    <button type="submit">Add</button>
+  </form>
+
+  <ul>
+      {% for task in tasks %}
+      <li>
+          <span class="{{ 'done' if task.done else '' }}">{{ task.description }}</span>
+          <div>
+              {% if not task.done %}
+              <a href="/done/{{ loop.index0 }}">✅ Done</a>
+              {% endif %}
+              <a href="/delete/{{ loop.index0 }}">🗑 Delete</a>
+          </div>
+      </li>
+      {% endfor %}
+  </ul>
+</body>
+</html>
