@@ -31,16 +31,16 @@
       </form>
 
       <ul class="list-group">
-        {% for i, task in enumerate(tasks) %}
+        {% for task in tasks %}
           <li class="list-group-item d-flex justify-content-between align-items-center">
             <span class="{{ 'text-decoration-line-through text-muted' if task.done else '' }}">
               {{ task.description }}
             </span>
             <div>
               {% if not task.done %}
-                <a href="/done/{{ i }}" class="btn btn-success btn-sm">Done</a>
+                <a href="/done/{{ loop.index0 }}">✅ Done</a>
               {% endif %}
-              <a href="/delete/{{ i }}" class="btn btn-danger btn-sm">Delete</a>
+                <a href="/delete/{{ loop.index0 }}">🗑 Delete</a>
             </div>
           </li>
         {% else %}
