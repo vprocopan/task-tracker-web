@@ -1,2 +1,24 @@
-flask
-gunicorn
+# Core web framework
+Flask==3.0.3
+
+# Database ORM
+Flask-SQLAlchemy==3.1.1
+
+# Authentication and password hashing
+Flask-Login==0.6.3
+Flask-Bcrypt==1.0.1
+
+# Optional but highly recommended
+Flask-WTF==1.2.1         # For form validation
+email-validator==2.1.1   # Required by Flask-WTF for email fields
+
+# Development tools
+python-dotenv==1.0.1     # For .env config files
+Werkzeug==3.0.3          # Ensure consistent version with Flask
+itsdangerous==2.2.0      # For session signing (used internally by Flask)
+Jinja2==3.1.4            # Templating engine (comes with Flask)
+MarkupSafe==2.1.5        # HTML escaping (comes with Flask)
+
+# (Optional extras)
+# gunicorn==22.0.0       # For production WSGI server
+# psycopg2-binary==2.9.9 # If switching to PostgreSQL instead of SQLite

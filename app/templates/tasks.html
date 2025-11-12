@@ -1,0 +1,22 @@
+<h2>Hello, {{ current_user.username }}</h2>
+
+<form action="{{ url_for('tasks.add_task') }}" method="post">
+  <input type="text" name="title" placeholder="New task">
+  <button>Add</button>
+</form>
+
+<ul>
+  {% for task in tasks %}
+    <li>
+      {% if task.completed %}
+        <s>{{ task.title }}</s>
+      {% else %}
+        {{ task.title }}
+      {% endif %}
+      <a href="{{ url_for('tasks.toggle_task', task_id=task.id) }}">Toggle</a>
+      <a href="{{ url_for('tasks.delete_task', task_id=task.id) }}">Delete</a>
+    </li>
+  {% endfor %}
+</ul>
+
+<a href="{{ url_for('auth.logout') }}">Logout</a>
