@@ -13,14 +13,23 @@ auth_bp = Blueprint('auth', __name__, template_folder='templates')
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
+
     if form.validate_on_submit():
+        print("✅ Form validated successfully!")
+        print("Data received:", form.username.data, form.email.data)
         hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
         user = User(username=form.username.data, email=form.email.data, password=hashed_pw)
         db.session.add(user)
         db.session.commit()
+        print("💾 User committed to database!")
         flash('Account created successfully! You can now log in.', 'success')
         return redirect(url_for('auth.login'))
+    else:
+        # This will show why the form didn’t validate
+        print("❌ Form validation failed:", form.errors)
+
     return render_template('register.html', form=form)
+
 
 # ─────────────────────────────
 #  Login
