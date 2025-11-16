@@ -23,6 +23,10 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ${SSH_USER}@${SSH_HOST} '
                             set -e
 
+                            echo "[+] Stopping old task-tracker container"
+                            docker stop task-tracker || true
+                            docker rm task-tracker || true
+
                             echo "[+] Pulling latest image from Docker Hub"
                             docker pull ${IMAGE}:latest
 
