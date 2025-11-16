@@ -23,5 +23,5 @@ Jinja2==3.1.4            # Templating engine (comes with Flask)
 MarkupSafe==2.1.5        # HTML escaping (comes with Flask)
 
 # (Optional extras)
-# gunicorn==22.0.0       # For production WSGI server
+gunicorn==22.0.0       # For production WSGI server
 # psycopg2-binary==2.9.9 # If switching to PostgreSQL instead of SQLite
