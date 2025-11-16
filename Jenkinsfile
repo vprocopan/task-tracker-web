@@ -37,7 +37,7 @@ pipeline {
         ----------------------------------------- */
         stage('Login to GHCR') {
             steps {
-                withCredentials([string(credentialsId: 'ghcr-token', variable: 'CR_PAT')]) {
+                withCredentials([string(credentialsId: 'ghtkn', variable: 'CR_PAT')]) {
                     sh """
                         echo \$CR_PAT | docker login ghcr.io -u vprocopan --password-stdin
                     """
