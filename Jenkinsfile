@@ -2,25 +2,27 @@ pipeline {
     agent any
 
     environment {
-        PYTHON = 'python3'
-        VENV_DIR = '.venv'
+        SSH_CRED = 'jenkins-key'
+        SSH_HOST = '192.168.100.93'
+        SSH_USER = 'root'
+        REMOTE_DIR = '/opt/task-tracker'
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout (local)') {
             steps {
-                git credentialsId: 'jenkins-key',
-                    branch: 'master',
-                    url: 'git@github.com:vprocopan/task-tracker-web.git'
+                git branch: 'master',
+                    url: 'git@github.com:vprocopan/task-tracker-web.git',
+                    credentialsId: SSH_CRED
             }
         }
 
         stage('Setup Python Environment (local)') {
             steps {
                 sh """
-                    ${PYTHON} -m venv ${VENV_DIR}
-                    . ${VENV_DIR}/bin/activate
+                    python3 -m venv .venv
+                    . .venv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
                     pip install pytest pytest-cov
@@ -31,31 +33,45 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh """
-                    . ${VENV_DIR}/bin/activate
-                    pytest --cov=. --cov-report=xml -v || true
+                    . .venv/bin/activate
+                    pytest -v || true
                 """
             }
         }
 
-        stage('Deploy to Remote Server') {
+        stage('Deploy via SSH and remote git pull') {
             steps {
-                withCredentials([sshUserPrivateKey(
-                    credentialsId: 'jenkins-key',
-                    keyFileVariable: 'SSH_KEY',
-                    usernameVariable: 'SSH_USER'
-                )]) {
+                withCredentials([sshUserPrivateKey(credentialsId: SSH_CRED,
+                                                  keyFileVariable: 'SSH_KEY',
+                                                  usernameVariable: 'SSH_USER_VAR')]) {
+
                     sh """
-                        echo "Deploying to remote server..."
+                        echo "=== Connecting to remote host and updating code ==="
 
-                        rsync -avz -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" ./ $SSH_USER@192.168.100.93:/opt/task-tracker/
+                        ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@$SSH_HOST "
+                            set -e
 
-                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SSH_USER@192.168.100.93 "
-                            pkill -f flask || true
-                            cd /opt/task-tracker
+                            echo '[+] Creating directory if it does not exist'
+                            mkdir -p $REMOTE_DIR
+
+                            if [ -d '$REMOTE_DIR/.git' ]; then
+                                echo '[+] Git repo exists — pulling latest updates'
+                                cd $REMOTE_DIR && git pull
+                            else
+                                echo '[+] Git repo missing — cloning fresh'
+                                git clone git@github.com:vprocopan/task-tracker-web.git $REMOTE_DIR
+                            fi
+
+                            echo '[+] Installing Python dependencies'
+                            cd $REMOTE_DIR
                             python3 -m venv .venv
                             . .venv/bin/activate
+                            pip install --upgrade pip
                             pip install -r requirements.txt
-                            FLASK_APP=app.py nohup flask run --host=0.0.0.0 --port=5000 &
+
+                            echo '[+] Restarting Flask App'
+                            pkill -f 'flask run' || true
+                            nohup .venv/bin/python3 -m flask run --host=0.0.0.0 --port=5000 >/dev/null 2>&1 &
                         "
                     """
                 }
@@ -69,10 +85,10 @@ pipeline {
             echo "Workspace cleaned."
         }
         success {
-            echo "Pipeline succeeded!"
+            echo "Deployment successful! 🎉"
         }
         failure {
-            echo "Pipeline failed!"
+            echo "Deployment failed ❌"
         }
     }
 }
