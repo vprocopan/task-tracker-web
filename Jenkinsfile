@@ -12,13 +12,13 @@ pipeline {
 
 		stage('Checkout') {
 			steps {
-				sshagent([GIT_CRED]) {
+				sshagent([jenkins-key]) {
 					checkout([
 						$class: 'GitSCM',
 						branches: [[name: '*/main']],
 						userRemoteConfigs: [[
 							url: 'git@github.com:vprocopan/task-tracker-web.git',
-							credentialsId: GIT_CRED
+							credentialsId: jenkins-key
 						]]
 					])
 				}
