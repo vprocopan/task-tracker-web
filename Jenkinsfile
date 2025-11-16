@@ -5,6 +5,7 @@ pipeline {
         SSH_CRED = 'jenkins-key'
         SSH_HOST = '192.168.100.93'
         REMOTE_DIR = '/opt/task-tracker'
+        GIT_REPO = 'https://github.com/vprocopan/task-tracker-web.git'
     }
 
     stages {
@@ -24,7 +25,6 @@ pipeline {
                     . .venv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
-                    pip install pytest pytest-cov
                 """
             }
         }
@@ -38,46 +38,44 @@ pipeline {
             }
         }
 
-        stage('Deploy via SSH') {
+        stage('Deploy') {
             steps {
                 withCredentials([
                     sshUserPrivateKey(
                         credentialsId: SSH_CRED,
                         keyFileVariable: 'SSH_KEY',
-                        usernameVariable: 'SSH_USER_VAR'
+                        usernameVariable: 'SSH_USER'
                     )
                 ]) {
 
                     sh """
-                        echo "=== Deploying to $SSH_HOST ==="
+                        echo "=== SSH into server and deploy ==="
 
-                        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER_VAR@$SSH_HOST" << 'EOF' || true
-set +e
+                        ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@$SSH_HOST '
 
-echo '[+] Creating target directory'
-mkdir -p $REMOTE_DIR
+                            set -e
 
-if [ -d "$REMOTE_DIR/.git" ]; then
-    echo '[+] Repo exists — pulling latest'
-    cd $REMOTE_DIR && git pull || true
-else
-    echo '[+] Fresh clone'
-    git clone git@github.com:vprocopan/task-tracker-web.git $REMOTE_DIR || true
-fi
+                            echo "[+] Ensure directory"
+                            mkdir -p $REMOTE_DIR
 
-echo '[+] Installing Python packages'
-cd $REMOTE_DIR
-python3 -m venv .venv
-. .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+                            echo "[+] Clone or pull"
+                            if [ -d "$REMOTE_DIR/.git" ]; then
+                                cd $REMOTE_DIR && git pull
+                            else
+                                git clone $GIT_REPO $REMOTE_DIR
+                            fi
 
-echo '[+] Restarting Flask app'
-pkill -f 'flask run' || true
-nohup .venv/bin/python3 -m flask run --host=0.0.0.0 --port=5000 >/dev/null 2>&1 &
+                            echo "[+] Install dependencies"
+                            cd $REMOTE_DIR
+                            python3 -m venv .venv
+                            . .venv/bin/activate
+                            pip install --upgrade pip
+                            pip install -r requirements.txt
 
-echo '[✓] Deploy finished'
-EOF
+                            echo "[+] Restart Flask"
+                            pkill -f "flask run" 2>/dev/null || true
+                            nohup .venv/bin/python3 -m flask run --host=0.0.0.0 --port=5000 &>/dev/null &
+                        '
                     """
                 }
             }
@@ -87,13 +85,6 @@ EOF
     post {
         always {
             cleanWs()
-            echo "Workspace cleaned."
-        }
-        success {
-            echo "Deployment successful! 🎉"
-        }
-        failure {
-            echo "Deployment failed ❌"
         }
     }
 }
