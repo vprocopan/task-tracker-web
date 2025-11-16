@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // Jenkins credential ID for GitHub SSH key
         GIT_CRED = 'github_ssh'
         PYTHON = 'python3'
         VENV_DIR = '.venv'
@@ -12,16 +11,9 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                sshagent([GIT_CRED]) {
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/main']],
-                        userRemoteConfigs: [[
-                            url: 'git@github.com:vprocopan/task-tracker-web.git',
-                            credentialsId: GIT_CRED
-                        ]]
-                    ])
-                }
+                git credentialsId: GIT_CRED,
+                    branch: 'master',
+                    url: 'git@github.com:vprocopan/task-tracker-web.git'
             }
         }
 
@@ -74,10 +66,10 @@ pipeline {
             echo "Cleaning workspace..."
         }
         success {
-            echo 'Pipeline succeeded!'
+            echo "Pipeline succeeded!"
         }
         failure {
-            echo 'Pipeline failed!'
+            echo "Pipeline failed!"
         }
     }
 }
