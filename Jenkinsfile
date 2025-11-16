@@ -4,7 +4,6 @@ pipeline {
     environment {
         SSH_CRED = 'jenkins-key'
         SSH_HOST = '192.168.100.93'
-        SSH_USER = 'root'
         REMOTE_DIR = '/opt/task-tracker'
     }
 
@@ -39,40 +38,46 @@ pipeline {
             }
         }
 
-        stage('Deploy via SSH and remote git pull') {
+        stage('Deploy via SSH') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: SSH_CRED,
-                                                  keyFileVariable: 'SSH_KEY',
-                                                  usernameVariable: 'SSH_USER_VAR')]) {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: SSH_CRED,
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER_VAR'
+                    )
+                ]) {
 
                     sh """
-                        echo "=== Connecting to remote host and updating code ==="
+                        echo "=== Deploying to $SSH_HOST ==="
 
-                        ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@$SSH_HOST "
-                            set -e
+                        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER_VAR@$SSH_HOST" << 'EOF' || true
+set +e
 
-                            echo '[+] Creating directory if it does not exist'
-                            mkdir -p $REMOTE_DIR
+echo '[+] Creating target directory'
+mkdir -p $REMOTE_DIR
 
-                            if [ -d '$REMOTE_DIR/.git' ]; then
-                                echo '[+] Git repo exists — pulling latest updates'
-                                cd $REMOTE_DIR && git pull
-                            else
-                                echo '[+] Git repo missing — cloning fresh'
-                                git clone git@github.com:vprocopan/task-tracker-web.git $REMOTE_DIR
-                            fi
+if [ -d "$REMOTE_DIR/.git" ]; then
+    echo '[+] Repo exists — pulling latest'
+    cd $REMOTE_DIR && git pull || true
+else
+    echo '[+] Fresh clone'
+    git clone git@github.com:vprocopan/task-tracker-web.git $REMOTE_DIR || true
+fi
 
-                            echo '[+] Installing Python dependencies'
-                            cd $REMOTE_DIR
-                            python3 -m venv .venv
-                            . .venv/bin/activate
-                            pip install --upgrade pip
-                            pip install -r requirements.txt
+echo '[+] Installing Python packages'
+cd $REMOTE_DIR
+python3 -m venv .venv
+. .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
 
-                            echo '[+] Restarting Flask App'
-                            pkill -f 'flask run' || true
-                            nohup .venv/bin/python3 -m flask run --host=0.0.0.0 --port=5000 >/dev/null 2>&1 &
-                        "
+echo '[+] Restarting Flask app'
+pkill -f 'flask run' || true
+nohup .venv/bin/python3 -m flask run --host=0.0.0.0 --port=5000 >/dev/null 2>&1 &
+
+echo '[✓] Deploy finished'
+EOF
                     """
                 }
             }
