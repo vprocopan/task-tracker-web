@@ -2,59 +2,13 @@ pipeline {
     agent any
 
     environment {
-        IMAGE = "ghcr.io/vprocopan/task-tracker-web"
+        IMAGE = "vprocopan/task-tracker"
         CONTAINER_NAME = "task-tracker-web"
         SSH_HOST = "192.168.100.93"
         SSH_USER = "root"
     }
 
     stages {
-
-        /* -----------------------------------------
-           CHECKOUT CODE
-        ----------------------------------------- */
-        stage('Checkout') {
-            steps {
-                git branch: 'master',
-                    url: 'git@github.com:vprocopan/task-tracker-web.git',
-                    credentialsId: 'jenkins-key'
-            }
-        }
-
-        /* -----------------------------------------
-           BUILD DOCKER IMAGE
-        ----------------------------------------- */
-        stage('Build Docker Image') {
-            steps {
-                sh """
-                    docker build -t ${IMAGE}:latest .
-                """
-            }
-        }
-
-        /* -----------------------------------------
-           LOGIN TO GHCR
-        ----------------------------------------- */
-        stage('Login to GHCR') {
-            steps {
-                withCredentials([string(credentialsId: 'ghtkn', variable: 'CR_PAT')]) {
-                    sh """
-                        echo \$CR_PAT | docker login ghcr.io -u vprocopan --password-stdin
-                    """
-                }
-            }
-        }
-
-        /* -----------------------------------------
-           PUSH DOCKER IMAGE
-        ----------------------------------------- */
-        stage('Push Docker Image') {
-            steps {
-                sh """
-                    docker push ${IMAGE}:latest
-                """
-            }
-        }
 
         /* -----------------------------------------
            DEPLOY TO REMOTE SERVER (SSH)
@@ -69,14 +23,13 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ${SSH_USER}@${SSH_HOST} '
                             set -e
 
-                            echo "[+] Logging into GHCR"
-                            echo "${CR_PAT}" | docker login ghcr.io -u vprocopan --password-stdin
-
-                            echo "[+] Pulling latest image"
+                            echo "[+] Pulling latest image from Docker Hub"
                             docker pull ${IMAGE}:latest
 
                             echo "[+] Stopping old container"
                             docker stop ${CONTAINER_NAME} || true
+
+                            echo "[+] Removing old container"
                             docker rm ${CONTAINER_NAME} || true
 
                             echo "[+] Starting new container"
