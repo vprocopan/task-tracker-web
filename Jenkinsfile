@@ -4,6 +4,7 @@ pipeline {
     environment {
         SSH_CRED = 'jenkins-key'
         SSH_HOST = '192.168.100.93'
+        SSH_USER = 'root'
         REMOTE_DIR = '/opt/task-tracker'
         GIT_REPO = 'https://github.com/vprocopan/task-tracker-web.git'
     }
@@ -18,7 +19,7 @@ pipeline {
             }
         }
 
-        stage('Setup Python Environment (local)') {
+        stage('Setup Python Env (local)') {
             steps {
                 sh """
                     python3 -m venv .venv
@@ -38,41 +39,39 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy to 192.168.100.93 as root') {
             steps {
                 withCredentials([
                     sshUserPrivateKey(
                         credentialsId: SSH_CRED,
-                        keyFileVariable: 'SSH_KEY',
-                        usernameVariable: 'SSH_USER'
+                        keyFileVariable: 'SSH_KEY'
                     )
                 ]) {
 
                     sh """
-                        echo "=== SSH into server and deploy ==="
+                        echo "=== Deploying as ROOT to $SSH_HOST ==="
 
-                        ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@$SSH_HOST '
-
+                        ssh -i \$SSH_KEY -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '
                             set -e
 
-                            echo "[+] Ensure directory"
+                            echo "[+] Creating directory"
                             mkdir -p $REMOTE_DIR
 
-                            echo "[+] Clone or pull"
+                            echo "[+] Cloning or pulling repository"
                             if [ -d "$REMOTE_DIR/.git" ]; then
                                 cd $REMOTE_DIR && git pull
                             else
                                 git clone $GIT_REPO $REMOTE_DIR
                             fi
 
-                            echo "[+] Install dependencies"
+                            echo "[+] Installing dependencies"
                             cd $REMOTE_DIR
                             python3 -m venv .venv
                             . .venv/bin/activate
                             pip install --upgrade pip
                             pip install -r requirements.txt
 
-                            echo "[+] Restart Flask"
+                            echo "[+] Restarting Flask app"
                             pkill -f "flask run" 2>/dev/null || true
                             nohup .venv/bin/python3 -m flask run --host=0.0.0.0 --port=5000 &>/dev/null &
                         '
@@ -85,6 +84,7 @@ pipeline {
     post {
         always {
             cleanWs()
+            echo "Workspace cleaned."
         }
     }
 }
