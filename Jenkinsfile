@@ -2,78 +2,90 @@ pipeline {
     agent any
 
     environment {
-        SSH_CRED = 'jenkins-key'
-        SSH_HOST = '192.168.100.93'
-        SSH_USER = 'root'
-        REMOTE_DIR = '/opt/task-tracker'
-        GIT_REPO = 'https://github.com/vprocopan/task-tracker-web.git'
+        IMAGE = "ghcr.io/vprocopan/task-tracker-web"
+        CONTAINER_NAME = "task-tracker-web"
+        SSH_HOST = "192.168.100.93"
+        SSH_USER = "root"
     }
 
     stages {
 
-        stage('Checkout (local)') {
+        /* -----------------------------------------
+           CHECKOUT CODE
+        ----------------------------------------- */
+        stage('Checkout') {
             steps {
                 git branch: 'master',
                     url: 'git@github.com:vprocopan/task-tracker-web.git',
-                    credentialsId: SSH_CRED
+                    credentialsId: 'jenkins-key'
             }
         }
 
-        stage('Setup Python Env (local)') {
+        /* -----------------------------------------
+           BUILD DOCKER IMAGE
+        ----------------------------------------- */
+        stage('Build Docker Image') {
             steps {
                 sh """
-                    python3 -m venv .venv
-                    . .venv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
+                    docker build -t ${IMAGE}:latest .
                 """
             }
         }
 
-        stage('Run Tests') {
+        /* -----------------------------------------
+           LOGIN TO GHCR
+        ----------------------------------------- */
+        stage('Login to GHCR') {
+            steps {
+                withCredentials([string(credentialsId: 'ghcr-token', variable: 'CR_PAT')]) {
+                    sh """
+                        echo \$CR_PAT | docker login ghcr.io -u vprocopan --password-stdin
+                    """
+                }
+            }
+        }
+
+        /* -----------------------------------------
+           PUSH DOCKER IMAGE
+        ----------------------------------------- */
+        stage('Push Docker Image') {
             steps {
                 sh """
-                    . .venv/bin/activate
-                    pytest -v || true
+                    docker push ${IMAGE}:latest
                 """
             }
         }
 
-        stage('Deploy to 192.168.100.93 as root') {
+        /* -----------------------------------------
+           DEPLOY TO REMOTE SERVER (SSH)
+        ----------------------------------------- */
+        stage('Deploy to Remote Server') {
             steps {
-                withCredentials([
-                    sshUserPrivateKey(
-                        credentialsId: SSH_CRED,
-                        keyFileVariable: 'SSH_KEY'
-                    )
-                ]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-key',
+                                                  keyFileVariable: 'SSH_KEY',
+                                                  usernameVariable: 'SSH_USER_VAR')]) {
 
                     sh """
-                        echo "=== Deploying as ROOT to $SSH_HOST ==="
-
-                        ssh -i \$SSH_KEY -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '
+                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ${SSH_USER}@${SSH_HOST} '
                             set -e
 
-                            echo "[+] Creating directory"
-                            mkdir -p $REMOTE_DIR
+                            echo "[+] Logging into GHCR"
+                            echo "${CR_PAT}" | docker login ghcr.io -u vprocopan --password-stdin
 
-                            echo "[+] Cloning or pulling repository"
-                            if [ -d "$REMOTE_DIR/.git" ]; then
-                                cd $REMOTE_DIR && git pull
-                            else
-                                git clone $GIT_REPO $REMOTE_DIR
-                            fi
+                            echo "[+] Pulling latest image"
+                            docker pull ${IMAGE}:latest
 
-                            echo "[+] Installing dependencies"
-                            cd $REMOTE_DIR
-                            python3 -m venv .venv
-                            . .venv/bin/activate
-                            pip install --upgrade pip
-                            pip install -r requirements.txt
+                            echo "[+] Stopping old container"
+                            docker stop ${CONTAINER_NAME} || true
+                            docker rm ${CONTAINER_NAME} || true
 
-                            echo "[+] Restarting Flask app"
-                            pkill -f "flask run" 2>/dev/null || true
-                            nohup .venv/bin/python3 -m flask run --host=0.0.0.0 --port=5000 &>/dev/null &
+                            echo "[+] Starting new container"
+                            docker run -d \
+                                --name ${CONTAINER_NAME} \
+                                -p 5000:5000 \
+                                ${IMAGE}:latest
+
+                            echo "[+] Deployment successful on ${SSH_HOST}"
                         '
                     """
                 }
@@ -82,9 +94,11 @@ pipeline {
     }
 
     post {
-        always {
-            cleanWs()
-            echo "Workspace cleaned."
+        success {
+            echo "🚀 Deployment completed successfully!"
+        }
+        failure {
+            echo "❌ Deployment failed!"
         }
     }
 }
